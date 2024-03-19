@@ -73,3 +73,37 @@ describe('Scheduler', () => {
     expect(task).not.toHaveBeenCalled()
   })
 })
+
+describe('Scheduler.generateUniqueId', () => {
+  test('generates unique IDs', () => {
+    const ids = new Set();
+    const iterations = 5000; // Generate a large number of IDs
+
+    for (let i = 0; i < iterations; i++) {
+      // Assuming generateUniqueId is accessible for testing
+      const id = Scheduler.generateUniqueId();
+      ids.add(id);
+    }
+
+    expect(ids.size).toBe(iterations); // Expect all generated IDs to be unique
+  });
+
+  test('IDs follow the expected format', () => {
+    const id = Scheduler.generateUniqueId();
+    expect(id).toMatch(/^\d+-\d+$/); // Matches '{timestamp}-{sequence}'
+  });
+
+  test('sequence resets when the timestamp changes', async () => {
+    // This test assumes you can simulate or control time progression
+    const firstId = Scheduler.generateUniqueId();
+    const [firstTimestamp, _] = firstId.split('-').map(Number);
+
+    jest.advanceTimersByTime(1); // Advance time by 1ms to trigger the task twice
+
+    const secondId = Scheduler.generateUniqueId();
+    const [secondTimestamp, secondSequence] = secondId.split('-').map(Number);
+
+    expect(secondTimestamp).toBeGreaterThan(firstTimestamp); // Ensure timestamp increased
+    expect(secondSequence).toBe(0); // Ensure sequence reset for the new timestamp
+  });
+});
