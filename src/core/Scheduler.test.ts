@@ -72,6 +72,30 @@ describe('Scheduler', () => {
     expect(Scheduler['scheduledTasks'].get(taskId)?.status).toBe('canceled')
     expect(task).not.toHaveBeenCalled()
   })
+
+  test('Task retries the specified number of times upon failure', () => {
+    jest.useFakeTimers();
+
+    const retryCount = 2;
+    const taskName = 'failingTask';
+    // A task that always fails
+
+    const failingTask = jest.fn(() => {
+      throw new Error("Task failure");
+    });
+
+    const taskId = Scheduler.scheduleTask(failingTask, 100, taskName, {}, [], retryCount);
+
+    jest.advanceTimersByTime(100 * 10);
+
+    // Check if the task was attempted retryCount + 1 times in total
+    expect(failingTask).toHaveBeenCalledTimes(retryCount + 1);
+
+    const taskMetadata = Scheduler['scheduledTasks'].get(taskId);
+    expect(taskMetadata?.status).toBe('failed');
+
+    jest.useRealTimers();
+  });
 })
 
 describe('Scheduler.generateUniqueId', () => {
