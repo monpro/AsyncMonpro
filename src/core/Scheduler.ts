@@ -15,6 +15,7 @@ export class Scheduler {
   private static sequence = 0;
 
   static onTaskStart: (id: string, name: string) => void = () => {};
+  static onTaskComplete: (id: string, name: string) => void = () => {};
 
 
   static scheduleTask(task: () => void, delay: number = 0, name: string, metadata: Object = {}, dependencies: string[] = []): string {
@@ -52,6 +53,7 @@ export class Scheduler {
       this.updateTaskStatus(id, 'executing');
       task();
       this.updateTaskStatus(id, 'completed');
+      this.onTaskComplete(id, taskMetadata.name);
     };
 
     if (delay === 0) {

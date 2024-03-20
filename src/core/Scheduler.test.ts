@@ -160,5 +160,19 @@ describe('Scheduler.generateUniqueId', () => {
       expect(onTaskStartMock).toHaveBeenCalledWith(taskId, taskName);
 
     });
+
+    test('onTaskComplete hook is called with correct parameters', () => {
+      const onTaskCompleteMock = jest.fn();
+      Scheduler.onTaskComplete = onTaskCompleteMock;
+
+      // Define a task and schedule it
+      const taskName = 'testTask';
+      const task = () => console.log("Task completed");
+      const taskId = Scheduler.scheduleTask(task, 0, taskName, {});
+
+      expect(onTaskCompleteMock).toHaveBeenCalledTimes(1);
+      expect(onTaskCompleteMock).toHaveBeenCalledWith(taskId, taskName);
+
+    });
   })
 });
