@@ -145,4 +145,20 @@ describe('Scheduler.generateUniqueId', () => {
       expect(waitingTaskMetadata?.status).toBe('waiting');
     });
   })
+
+  describe('Scheduler Hooks', () => {
+    test('onTaskStart hook is called with correct parameters', () => {
+      const onTaskStartMock = jest.fn();
+      Scheduler.onTaskStart = onTaskStartMock;
+
+      // Define a task and schedule it
+      const taskName = 'testTask';
+      const task = () => console.log("Task executed");
+      const taskId = Scheduler.scheduleTask(task, 0, taskName, {});
+
+      expect(onTaskStartMock).toHaveBeenCalledTimes(1);
+      expect(onTaskStartMock).toHaveBeenCalledWith(taskId, taskName);
+
+    });
+  })
 });

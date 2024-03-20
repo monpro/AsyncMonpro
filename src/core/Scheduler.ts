@@ -13,6 +13,10 @@ export class Scheduler {
   private static scheduledTasks: Map<string, ScheduledTaskMetadata> = new Map<string, ScheduledTaskMetadata>()
   private static lastTimestamp = -1;
   private static sequence = 0;
+
+  static onTaskStart: (id: string, name: string) => void = () => {};
+
+
   static scheduleTask(task: () => void, delay: number = 0, name: string, metadata: Object = {}, dependencies: string[] = []): string {
     const id = this.generateUniqueId();
     const taskMetadata: ScheduledTaskMetadata = {
@@ -44,6 +48,7 @@ export class Scheduler {
 
   private static executeOrDelayTask(task: () => void, delay: number, id: string, taskMetadata: ScheduledTaskMetadata) {
     const execute = () => {
+      this.onTaskStart(id, taskMetadata.name);
       this.updateTaskStatus(id, 'executing');
       task();
       this.updateTaskStatus(id, 'completed');
