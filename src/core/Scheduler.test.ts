@@ -106,4 +106,43 @@ describe('Scheduler.generateUniqueId', () => {
     expect(secondTimestamp).toBeGreaterThan(firstTimestamp); // Ensure timestamp increased
     expect(secondSequence).toBe(0); // Ensure sequence reset for the new timestamp
   });
+
+  describe('Scheduler Dependency Checks', () => {
+    const createMockTask = () => jest.fn(() => {});
+    test('Task without dependencies executes immediately', () => {
+      jest.useFakeTimers();
+      const task = createMockTask();
+      const taskId = Scheduler.scheduleTask(task, 0, 'noDepsTask', {});
+
+      jest.runAllTimers();
+      const taskMetadata = Scheduler['scheduledTasks'].get(taskId);
+      expect(task).toHaveBeenCalled();
+      expect(taskMetadata?.status).toBe('completed');
+    });
+
+    test('Task with met dependencies executes', () => {
+      const depTask = createMockTask();
+      const taskIdWithDeps = Scheduler.scheduleTask(depTask, 0, 'depTask', {});
+      Scheduler.updateTaskStatus(taskIdWithDeps, 'completed'); // Manually set dependency as completed
+
+      const mainTask = createMockTask();
+      const taskId = Scheduler.scheduleTask(mainTask, 0, 'mainTask', {}, [taskIdWithDeps]);
+
+      expect(mainTask).toHaveBeenCalled();
+      const mainTaskMetadata = Scheduler['scheduledTasks'].get(taskId);
+      expect(mainTaskMetadata?.status).toBe('completed');
+    });
+
+    test('Task with unmet dependencies waits', () => {
+      const depTask = createMockTask();
+      const taskIdWithUnmetDeps = Scheduler.scheduleTask(depTask, 100000, 'unmetDepTask', {});
+
+      const waitingTask = createMockTask();
+      const taskId = Scheduler.scheduleTask(waitingTask, 0, 'waitingTask', {}, [taskIdWithUnmetDeps]);
+
+      expect(waitingTask).not.toHaveBeenCalled();
+      const waitingTaskMetadata = Scheduler['scheduledTasks'].get(taskId);
+      expect(waitingTaskMetadata?.status).toBe('waiting');
+    });
+  })
 });

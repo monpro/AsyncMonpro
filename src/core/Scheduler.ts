@@ -2,40 +2,75 @@ type ScheduledTaskMetadata = {
   id: string
   name: string
   scheduledId: NodeJS.Timeout | null // Timeout for setTimeout and Interval for setInterval
-  status: 'scheduled' | 'executing' | 'completed' | 'canceled'
+  status: ScheduledTaskStatus
+  dependencies?: string[] // list of dependency task ids
   [key: string]: any // additional metadata
 }
 
+type ScheduledTaskStatus = 'scheduled' | 'waiting' |'executing' | 'completed' | 'canceled'
 
 export class Scheduler {
   private static scheduledTasks: Map<string, ScheduledTaskMetadata> = new Map<string, ScheduledTaskMetadata>()
   private static lastTimestamp = -1;
   private static sequence = 0;
-  static scheduleTask(task: () => void, delay: number = 0, name: string, metadata: Object = {}): string {
-    const id = this.generateUniqueId()
+  static scheduleTask(task: () => void, delay: number = 0, name: string, metadata: Object = {}, dependencies: string[] = []): string {
+    const id = this.generateUniqueId();
     const taskMetadata: ScheduledTaskMetadata = {
       id,
       name,
-      scheduledId: null, // This will be updated below
-      status: 'scheduled', // Initial status
-      ...metadata
+      scheduledId: null,
+      status: 'scheduled',
+      ...metadata,
+      dependencies,
+    };
+
+    this.scheduledTasks.set(id, taskMetadata);
+    // Check dependencies before scheduling
+    if (dependencies.length === 0 || this.allDependenciesMet(dependencies)) {
+      this.executeOrDelayTask(task, delay, id, taskMetadata);
+    } else {
+      // If dependencies are not met, monitor and wait
+      taskMetadata.status = 'waiting';
+      const dependencyCheckInterval = setInterval(() => {
+        if (this.allDependenciesMet(dependencies)) {
+          clearInterval(dependencyCheckInterval);
+          this.executeOrDelayTask(task, delay, id, taskMetadata);
+        }
+      }, 100); // Check every 100ms
+    }
+
+    return id;
+  }
+
+  private static executeOrDelayTask(task: () => void, delay: number, id: string, taskMetadata: ScheduledTaskMetadata) {
+    const execute = () => {
+      this.updateTaskStatus(id, 'executing');
+      task();
+      this.updateTaskStatus(id, 'completed');
     };
 
     if (delay === 0) {
-      taskMetadata.status = 'executing'
-      this.scheduledTasks.set(id, taskMetadata)
-      task()
-      taskMetadata.status = 'completed'
-      return id
+      execute();
     } else {
-      taskMetadata.scheduledId = setTimeout(() => {
-        taskMetadata.status = 'executing'
-        task()
-        taskMetadata.status = 'completed'
-      }, delay);
-      this.scheduledTasks.set(id, taskMetadata)
-      return id
+      taskMetadata.scheduledId = setTimeout(execute, delay);
+      this.scheduledTasks.set(id, taskMetadata);
     }
+  }
+
+
+  public static updateTaskStatus(id: string, status: ScheduledTaskStatus) {
+    const taskMetadata = this.scheduledTasks.get(id);
+    if (taskMetadata) {
+      taskMetadata.status = status;
+      this.scheduledTasks.set(id, taskMetadata);
+    }
+  }
+
+  private static allDependenciesMet(dependencies: string[]): boolean {
+    return dependencies.every(depId => {
+      const depTask = this.scheduledTasks.get(depId);
+      return depTask && depTask.status === 'completed';
+    });
   }
 
   static scheduleRecurringTask(task: () => void, interval: number, name: string, metadata: Object = {}): string {
@@ -86,4 +121,5 @@ export class Scheduler {
 
     return `${timestamp}-${this.sequence}`
   }
+
 }
