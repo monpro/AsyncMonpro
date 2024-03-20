@@ -7,7 +7,7 @@ type ScheduledTaskMetadata = {
   [key: string]: any // additional metadata
 }
 
-type ScheduledTaskStatus = 'scheduled' | 'waiting' |'executing' | 'completed' | 'canceled'
+type ScheduledTaskStatus = 'scheduled' | 'waiting' |'executing' | 'completed' | 'canceled' | 'failed'
 
 export class Scheduler {
   private static scheduledTasks: Map<string, ScheduledTaskMetadata> = new Map<string, ScheduledTaskMetadata>()
@@ -16,6 +16,7 @@ export class Scheduler {
 
   static onTaskStart: (id: string, name: string) => void = () => {};
   static onTaskComplete: (id: string, name: string) => void = () => {};
+  static onTaskFail: (id: string, name: string, error: unknown) => void = () => {};
 
 
   static scheduleTask(task: () => void, delay: number = 0, name: string, metadata: Object = {}, dependencies: string[] = []): string {
@@ -51,9 +52,14 @@ export class Scheduler {
     const execute = () => {
       this.onTaskStart(id, taskMetadata.name);
       this.updateTaskStatus(id, 'executing');
-      task();
-      this.updateTaskStatus(id, 'completed');
-      this.onTaskComplete(id, taskMetadata.name);
+      try {
+        task();
+        this.updateTaskStatus(id, 'completed');
+        this.onTaskComplete(id, taskMetadata.name);
+      } catch (error) {
+        this.updateTaskStatus(id, 'failed');
+        this.onTaskFail(id, taskMetadata.name, error)
+      }
     };
 
     if (delay === 0) {

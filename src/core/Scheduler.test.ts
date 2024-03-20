@@ -109,36 +109,6 @@ describe('Scheduler.generateUniqueId', () => {
   });
 });
 
-describe('Scheduler Hooks', () => {
-  test('onTaskStart hook is called with correct parameters', () => {
-    const onTaskStartMock = jest.fn();
-    Scheduler.onTaskStart = onTaskStartMock;
-
-    // Define a task and schedule it
-    const taskName = 'testTask';
-    const task = () => console.log("Task executed");
-    const taskId = Scheduler.scheduleTask(task, 0, taskName, {});
-
-    expect(onTaskStartMock).toHaveBeenCalledTimes(1);
-    expect(onTaskStartMock).toHaveBeenCalledWith(taskId, taskName);
-
-  });
-
-  test('onTaskComplete hook is called with correct parameters', () => {
-    const onTaskCompleteMock = jest.fn();
-    Scheduler.onTaskComplete = onTaskCompleteMock;
-
-    // Define a task and schedule it
-    const taskName = 'testTask';
-    const task = () => console.log("Task completed");
-    const taskId = Scheduler.scheduleTask(task, 0, taskName, {});
-
-    expect(onTaskCompleteMock).toHaveBeenCalledTimes(1);
-    expect(onTaskCompleteMock).toHaveBeenCalledWith(taskId, taskName);
-
-  });
-})
-
 describe('Scheduler Dependency Checks', () => {
   const createMockTask = () => jest.fn(() => {});
   test('Task without dependencies executes immediately', () => {
@@ -175,5 +145,52 @@ describe('Scheduler Dependency Checks', () => {
     expect(waitingTask).not.toHaveBeenCalled();
     const waitingTaskMetadata = Scheduler['scheduledTasks'].get(taskId);
     expect(waitingTaskMetadata?.status).toBe('waiting');
+  });
+})
+
+describe('Scheduler Hooks', () => {
+  test('onTaskStart hook is called with correct parameters', () => {
+    const onTaskStartMock = jest.fn();
+    Scheduler.onTaskStart = onTaskStartMock;
+
+    // Define a task and schedule it
+    const taskName = 'testTask';
+    const task = () => console.log("Task executed");
+    const taskId = Scheduler.scheduleTask(task, 0, taskName, {});
+
+    expect(onTaskStartMock).toHaveBeenCalledTimes(1);
+    expect(onTaskStartMock).toHaveBeenCalledWith(taskId, taskName);
+
+  });
+
+  test('onTaskComplete hook is called with correct parameters', () => {
+    const onTaskCompleteMock = jest.fn();
+    Scheduler.onTaskComplete = onTaskCompleteMock;
+
+    // Define a task and schedule it
+    const taskName = 'testTask';
+    const task = () => console.log("Task completed");
+    const taskId = Scheduler.scheduleTask(task, 0, taskName, {});
+
+    expect(onTaskCompleteMock).toHaveBeenCalledTimes(1);
+    expect(onTaskCompleteMock).toHaveBeenCalledWith(taskId, taskName);
+
+  });
+
+  test('onTaskFail hook is called with correct parameters', () => {
+    const onTaskFailMock = jest.fn();
+    Scheduler.onTaskFail = onTaskFailMock;
+
+    // Define a task and schedule it
+    const taskName = 'testTask';
+    const failedTask = () => { throw new Error("Task failed"); };
+    Scheduler.scheduleTask(failedTask, 0, taskName, {});
+
+    expect(onTaskFailMock).toHaveBeenCalledTimes(1);
+    expect(onTaskFailMock).toHaveBeenCalledWith(
+      expect.any(String),
+      taskName,
+      expect.objectContaining({ message: "Task failed" }) // Verify it's the error thrown by the task
+    );
   });
 })
