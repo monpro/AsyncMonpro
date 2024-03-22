@@ -96,6 +96,38 @@ describe('Scheduler', () => {
 
     jest.useRealTimers();
   });
+
+  test('Recurring task retries upon failure and succeeds', () => {
+    jest.useFakeTimers()
+    const taskName = 'testRecurringTask';
+    let executionCount = 0;
+    const maxRetries = 2;
+    const interval = 1000; // 1 second interval for the recurring task
+
+    // Mock task that fails the first two times, then succeeds
+    const task = jest.fn(() => {
+      executionCount++;
+      if (executionCount <= 2) {
+        throw new Error("Task failure");
+      }
+    });
+
+    Scheduler.scheduleRecurringTask(task, interval, taskName, {}, maxRetries);
+
+    // Advance time to trigger the first execution (which will fail and retry)
+    jest.advanceTimersByTime(interval);
+    expect(task).toHaveBeenCalledTimes(1); // Failed first attempt
+
+    // Advance time to trigger the retry (which will fail and retry again)
+    jest.advanceTimersByTime(interval );
+    expect(task).toHaveBeenCalledTimes(2); // Failed retry attempt
+
+    // Advance time to trigger the second retry (which succeeds)
+    jest.advanceTimersByTime(interval);
+    expect(task).toHaveBeenCalledTimes(3); // Successful retry attempt
+
+    jest.useRealTimers();
+  });
 })
 
 describe('Scheduler.generateUniqueId', () => {

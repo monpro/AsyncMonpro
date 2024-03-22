@@ -131,26 +131,59 @@ export class Scheduler {
   }
 
   // TODO: Add retry for scheduleRecurringTask
-  static scheduleRecurringTask(task: () => void, interval: number, name: string, metadata: Object = {}): string {
-    const id = this.generateUniqueId()
-    const scheduledId = setInterval(() => {
-      const currentTask = this.scheduledTasks.get(id)
-      if (currentTask) {
-        currentTask.status = 'executing'
-      }
-      task()
-    }, interval)
+  static scheduleRecurringTask(
+    task: () => void,
+    interval: number,
+    name: string,
+    metadata: Object = {},
+    maxRetries: number = 0
+  ): string {
+    const id = this.generateUniqueId();
+    let retryCount = 0;
+    let scheduledId;
 
+    const executeTask = () => {
+      this.onTaskStart(id, name);
+      try {
+        task();
+        retryCount = 0; // Reset retry count on successful execution
+        this.onTaskComplete(id, name);
+        // Task succeeded; schedule the next execution after the specified interval
+        setTimeout(executeTask, interval);
+      } catch (error) {
+        if (retryCount < maxRetries) {
+          retryCount++;
+          this.onTaskRetry(id, name, retryCount, maxRetries);
+          // Task failed but has retries left; retry immediately
+          setTimeout(executeTask, interval);
+        } else {
+          // Task failed and exhausted all retries; report failure
+          this.onTaskFail(id, name, error);
+          retryCount = 0; // Reset retry count
+          // Do not schedule the next execution; the task cycle ends here until manually restarted
+        }
+      }
+    };
+
+    // Initially schedule the task execution
+    scheduledId = setTimeout(executeTask, interval);
+
+    // Update task metadata with the scheduledId for potential cancellation
     const taskMetadata: ScheduledTaskMetadata = {
       id,
       name,
-      task,
       scheduledId,
       status: 'scheduled',
-      ...metadata
+      task,
+      retryCount: 0,
+      maxRetries,
+      delay: interval,
+      ...metadata,
     };
-    this.scheduledTasks.set(id, taskMetadata)
-    return id
+
+    this.scheduledTasks.set(id, taskMetadata);
+
+    return id;
   }
 
   static cancelScheduledTask(id: string): boolean {
@@ -164,7 +197,6 @@ export class Scheduler {
     }
     return false
   }
-
   // TODO: refactor the algorithm to snowflake
   public static generateUniqueId(): string {
     const timestamp = Date.now()
